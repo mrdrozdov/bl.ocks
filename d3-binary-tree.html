@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<head>
+  <title>D3.js Flowchart Shapes</title>
+  <style type="text/css">
+
+    div.tooltip {
+      position: absolute;
+      text-align: center;
+      width: 60px;
+      height: 28px;
+      padding: 2px;
+      font: 12px sans-serif;
+      background: lightsteelblue;
+      border: 0px;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+  </style>
+</head>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+
+<button id="save">save</button>
+<div id="svgdataurl" style="display: none"></div>
+<div id="pngdataurl" style="display: none"></div>
+<canvas width="960" height="500" style="display:none"></canvas>
+
+<script type="text/javascript">
+
+/* 
+
+References:
+
+Custom Shapes
+http://bl.ocks.org/explunit/4659227
+
+Mouse Hover
+https://bl.ocks.org/d3noob/257c360b3650b9f0a52dd8257d7a2d73
+
+Save SVG as PNG
+http://techslides.com/save-svg-as-an-image
+
+*/
+
+var flow_shapes = { 
+  diamond: function(height, width) {
+    var points = [ [0,height/2], [width/2, height], [width, height/2], [width/2, 0], [0,height/2] ]
+    return d3.svg.line()(points);
+  },
+}
+
+var binaryTreeLookup = {
+  tree0: function(height, width) {
+    var points = [ 
+      [width/6,height], [width/6,0], [4*width/6,0], [4*width/6,height/2],
+      [3*width/6,height/2], [3*width/6,height],
+      [3*width/6,height/2], [4*width/6,height/2], // Reverse
+      [5*width/6,height/2], [5*width/6,height],
+    ]
+    return d3.svg.line()(points);
+  },
+  tree1: function(height, width) {
+    var points = [ 
+      [5*width/6,height], [5*width/6,0], [2*width/6,0], [2*width/6,height/2],
+      [3*width/6,height/2], [3*width/6,height],
+      [3*width/6,height/2], [2*width/6,height/2], // Reverse
+      [1*width/6,height/2], [1*width/6,height],
+    ]
+    return d3.svg.line()(points);
+  },
+};
+
+var nodes = [
+  // Level0
+  {NodeType: "diamond",   x:50, y:300, height:50, width: 50, level: 0, position: 0, tree: 'tree0'},
+  {NodeType: "diamond",   x:100, y:300, height:50, width: 50, level: 0, position: 1, tree: 'tree0'},
+  {NodeType: "diamond",   x:150, y:300, height:50, width: 50, level: 0, position: 2, tree: 'tree1'},
+
+  // Level1
+  {NodeType: "diamond",   x:75, y:325, height:50, width: 50, level: 1, position: 0, tree: 'tree1'},
+  {NodeType: "diamond",   x:125, y:325, height:50, width: 50, level: 1, position: 1, tree: 'tree0'},
+
+  // Level2
+  {NodeType: "diamond",   x:100, y:350, height:50, width: 50, level: 2, position: 0, tree: 'tree0'},
+]
+
+var textNodes = [
+  {NodeType: "text",   width: 50, x:50 + 50/2,  y:300 + 50*2 + 20, txt: 'The'},
+  {NodeType: "text",   width: 50, x:100 + 50/2, y:300 + 50*2 + 20, txt: 'cat'},
+  {NodeType: "text",   width: 50, x:150 + 50/2, y:300 + 50*2 + 20, txt: 'drinks'},
+]
+
+var svgNodesLookup = {};
+var nodesLookup = {};
+
+function nodeKey(level, position) {
+  return level + '_' + position;
+}
+
+svg = d3.select("body")
+  .append("x")
+  .append("svg:svg")
+    .attr("id", "svg1")
+    .attr("width", 600).attr("height", 600)
+
+var colorDefault = "white";
+var colorHover = "#F6ECB5";
+
+var selected = null;
+
+function selectNode(d) {
+  if (selected != null) {
+    k = nodeKey(selected.level, selected.position);
+    d3.select(svgNodesLookup[k]).attr("fill", colorDefault);
+    selected = null;
+  }
+
+  k = nodeKey(d.level, d.position);
+  d3.select(svgNodesLookup[k]).attr("fill", colorHover);
+  selected = d;
+
+  drawSvgTree(d);
+}
+
+svg.selectAll("path")
+  .data(nodes).enter().append("svg:path")
+  .attr("d", function(d) { return flow_shapes[d.NodeType](d.height, d.width);})
+  .attr("stroke", "black")
+  .attr("fill", colorDefault)
+  .attr("transform", function(d) {
+    var k = nodeKey(d.level, d.position);
+    svgNodesLookup[k] = this;
+    return "translate(" + d.x + "," + d.y + ")"
+  })
+  .on("mouseover", function(d) {
+    selectNode(d);
+  })
+  .on("mouseout", function(d) {
+    // pass
+  });
+
+var svgTree = d3.select("body")
+  .append("x")
+  .append("svg:svg")
+    .attr("id", "svg2")
+    .attr("width", 600)
+    .attr("height", 600);
+
+function drawSvgTree(d) {
+  svgTree.selectAll("path").remove();
+  svgTree.selectAll("circle").remove();
+  svgTree.selectAll("g").remove();
+
+  path = svgTree.selectAll("path")
+
+  // Recreate chart with selected node highlighted.
+  // path.data(nodes).enter().append("svg:path")
+  //   .attr("d", function(d) { return flow_shapes[d.NodeType](d.height, d.width);})
+  //   .attr("stroke", "black")
+  //   .attr("fill", colorDefault)
+  //   .attr("transform", function(d) {
+  //     if (selected != null) {
+  //       k = nodeKey(d.level, d.position);
+  //       kSelected = nodeKey(selected.level, selected.position);
+
+  //       if (k === kSelected) {
+  //         d3.select(this).attr("fill", colorHover);
+  //       }
+  //     }
+      
+  //     return "translate(" + d.x + "," + d.y + ")"
+  //   });
+
+  path.data([d])
+      .enter().append("svg:path")
+      .attr("d", function(d) {
+        return binaryTreeLookup[d.tree](100, 150);
+      })
+      .attr("stroke", "black")
+      .attr("fill", "None")
+      .attr("transform", function(d) {
+        return "translate(50,300)"
+      });
+
+  svgTree.selectAll("dot")
+    .data([d])
+      .enter().append("circle")
+      .attr("r", 5)
+      .attr("cx", function(d) {
+        level = d.level
+        position = d.position
+        offset = 50/2 * level
+        return 50 + 50/2 + offset + 50 * position;
+      })
+      .attr("cy", function(d) {
+        level = d.level
+        y = 300 + 50 * 2 - 50 * level
+        return y;
+      });
+
+  svgTree.selectAll("g")
+      .data(textNodes)
+    .enter().append("g")
+      .attr("transform", function(d, i) {
+        return "translate(" + d.x + "," + d.y + ")"
+      })
+    .append("text")
+      .text(function(d) {
+        return d.txt;
+      })
+      .attr("text-anchor", "middle");
+}
+
+d3.select("#save").on("click", function(){
+  var myhtml = d3.select("#svg2")
+        .attr("version", 1.1)
+        .attr("xmlns", "http://www.w3.org/2000/svg")
+        .node().parentNode.innerHTML;
+
+  var imgsrc = 'data:image/svg+xml;base64,'+ btoa(myhtml);
+  var img = '<img src="'+imgsrc+'">'; 
+  d3.select("#svgdataurl").html(img);
+
+  var canvas = document.querySelector("canvas"),
+    context = canvas.getContext("2d");
+
+  var image = new Image;
+  image.src = imgsrc;
+  image.onload = function() {
+    context.drawImage(image, 0, 0);
+
+    var canvasdata = canvas.toDataURL("image/png");
+
+    var pngimg = '<img src="'+canvasdata+'">'; 
+      d3.select("#pngdataurl").html(pngimg);
+
+    var a = document.createElement("a");
+    a.download = "sample.png";
+    a.href = canvasdata;
+    a.click();
+  };
+
+});
+
+    
+</script>
+</body>
